@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/rs/zerolog/log"
 	"github.com/shutter-network/shutter-service-api/common"
 	"github.com/shutter-network/shutter-service-api/common/database"
 	"github.com/shutter-network/shutter-service-api/internal/data"
@@ -39,24 +38,16 @@ func (s *TestShutterService) SetupSuite() {
 
 	s.dbQuery = data.New(s.db)
 	signingKey, err := crypto.HexToECDSA(os.Getenv("SIGNING_KEY"))
-	if err != nil {
-		log.Err(err).Msg("failed to parse signing key")
-	}
+	s.Require().NoError(err)
 
 	keyperHTTPUrl := os.Getenv("KEYPER_HTTP_URL")
 
 	s.config, err = common.NewConfig(keyperHTTPUrl, signingKey)
-	if err != nil {
-		log.Err(err).Msg("unable to parse keyper http url")
-		return
-	}
+	s.Require().NoError(err)
 
 	rpc_url := os.Getenv("RPC_URL")
 	s.ethClient, err = ethclient.Dial(rpc_url)
-	if err != nil {
-		log.Err(err).Msg("failed to initialize rpc client")
-		return
-	}
+	s.Require().NoError(err)
 
 	shutterRegistryContractAddressStringified := os.Getenv("SHUTTER_REGISTRY_CONTRACT_ADDRESS")
 	shutterRegistryContractAddress := ethCommon.HexToAddress(shutterRegistryContractAddressStringified)
@@ -68,10 +59,8 @@ func (s *TestShutterService) SetupSuite() {
 	keyperSetManagerContractAddress := ethCommon.HexToAddress(keyperSetManagerContractAddressStringified)
 
 	s.contract, err = common.NewContract(s.ethClient, shutterRegistryContractAddress, keyperSetManagerContractAddress, keyBroadcastContractAddress)
-	if err != nil {
-		log.Err(err).Msg("failed to instantiate shutter contracts")
-		return
-	}
+	s.Require().NoError(err)
+
 	s.router = router.NewRouter(s.db, s.contract, s.ethClient, s.config)
 	s.testServer = httptest.NewServer(s.router)
 }
