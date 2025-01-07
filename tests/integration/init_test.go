@@ -6,6 +6,8 @@ import (
 	"os"
 	"testing"
 
+	cryptoRand "crypto/rand"
+
 	ethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -70,6 +72,15 @@ func TestShutterServiceSuite(t *testing.T) {
 }
 
 func (s *TestShutterService) TearDownSuite() {
-	s.testServer.Close()
 	s.db.Close()
+	s.testServer.Close()
+}
+
+func generateRandomBytes(n int) ([]byte, error) {
+	b := make([]byte, n)
+	_, err := cryptoRand.Read(b)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
 }
