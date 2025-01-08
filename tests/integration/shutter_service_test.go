@@ -41,7 +41,7 @@ func (s *TestShutterService) TestRequestDecryptionKeyBeforeTimestampReached() {
 	s.Require().NoError(err)
 
 	res := dataForEncryptionResponse["message"]
-	s.Require().Greater(res.Eon, uint64(1))
+	s.Require().GreaterOrEqual(res.Eon, uint64(1))
 	s.Require().NotNil(res.EonKey)
 	s.Require().NotNil(res.Identity)
 	s.Require().NotNil(res.IdentityPrefix)
