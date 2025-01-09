@@ -153,3 +153,50 @@ func (s *TestShutterService) TestRequestDecryptionKeyAfterTimestampReached() {
 	s.Require().NoError(err)
 	s.Require().NotEmpty(decryptionKeyResponse.DecryptionKey)
 }
+
+func (s *TestShutterService) TestRequestDecryptionKeyForUnregisteredIdentity() {
+	address := crypto.PubkeyToAddress(*s.config.PublicKey).Hex()
+	identityPrefix, err := generateRandomBytes(32)
+	s.Require().NoError(err)
+	identityPrefixStringified := hex.EncodeToString(identityPrefix)
+
+	query := fmt.Sprintf("?address=%s&identityPrefix=%s", address, identityPrefixStringified)
+	url := "/api/get_data_for_encryption" + query
+
+	recorder := httptest.NewRecorder()
+	s.router.ServeHTTP(recorder, httptest.NewRequest("GET", url, nil))
+
+	s.Require().Equal(http.StatusOK, recorder.Code)
+
+	body, err := io.ReadAll(recorder.Body)
+	s.Require().NoError(err)
+
+	var dataForEncryptionResponse map[string]usecase.GetDataForEncryptionResponse
+	err = json.Unmarshal(body, &dataForEncryptionResponse)
+	s.Require().NoError(err)
+
+	res := dataForEncryptionResponse["message"]
+	s.Require().GreaterOrEqual(res.Eon, uint64(1))
+	s.Require().NotNil(res.EonKey)
+	s.Require().NotNil(res.Identity)
+	s.Require().NotNil(res.IdentityPrefix)
+
+	identityStringified := res.Identity
+
+	query = fmt.Sprintf("?identity=%s", identityStringified)
+	url = "/api/get_decryption_key" + query
+
+	recorder = httptest.NewRecorder()
+	s.router.ServeHTTP(recorder, httptest.NewRequest("GET", url, nil))
+
+	s.Require().Equal(http.StatusBadRequest, recorder.Code)
+
+	body, err = io.ReadAll(recorder.Body)
+	s.Require().NoError(err)
+
+	var errorResponse httpError.Http
+	err = json.Unmarshal(body, &errorResponse)
+	s.Require().NoError(err)
+
+	s.Require().Equal(errorResponse.Description, "identity has not been registerd yet")
+}
