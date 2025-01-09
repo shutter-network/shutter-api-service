@@ -168,13 +168,15 @@ func (s *TestShutterService) TestRequestDecryptionKeyAfterTimestampReached() {
 	body, err = io.ReadAll(recorder.Body)
 	s.Require().NoError(err)
 
-	var decryptionKeyResponse usecase.GetDecryptionKeyResponse
+	var decryptionKeyResponse map[string]usecase.GetDecryptionKeyResponse
 	err = json.Unmarshal(body, &decryptionKeyResponse)
 	s.Require().NoError(err)
-	s.Require().NotEmpty(decryptionKeyResponse.DecryptionKey)
+
+	decryptionKeyStringified := decryptionKeyResponse["message"].DecryptionKey
+	s.Require().NotEmpty(decryptionKeyStringified)
 
 	var decryptionKey *shcrypto.EpochSecretKey
-	decryptionKeyBytes, err := hex.DecodeString(decryptionKeyResponse.DecryptionKey)
+	decryptionKeyBytes, err := hex.DecodeString(decryptionKeyStringified)
 	s.Require().NoError(err)
 	err = decryptionKey.Unmarshal(decryptionKeyBytes)
 	s.Require().NoError(err)
