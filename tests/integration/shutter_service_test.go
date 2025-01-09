@@ -11,6 +11,9 @@ import (
 	"time"
 
 	httpError "github.com/shutter-network/shutter-service-api/internal/error"
+	"github.com/shutter-network/shutter/shlib/shcrypto"
+
+	cryptorand "crypto/rand"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/shutter-network/shutter-service-api/internal/service"
@@ -115,6 +118,23 @@ func (s *TestShutterService) TestRequestDecryptionKeyAfterTimestampReached() {
 
 	identityStringified := res.Identity
 
+	identityBytes, err := hex.DecodeString(res.Identity)
+	s.Require().NoError(err)
+
+	eonKeyBytes, err := hex.DecodeString(res.EonKey)
+	s.Require().NoError(err)
+
+	var identity *shcrypto.EpochID
+	identity.Unmarshal(identityBytes)
+
+	var eonPublicKey *shcrypto.EonPublicKey
+	eonPublicKey.Unmarshal(eonKeyBytes)
+
+	sigma, err := shcrypto.RandomSigma(cryptorand.Reader)
+	s.Require().NoError(err)
+
+	encryptedTransaction := shcrypto.Encrypt(msg, eonPublicKey, identity, sigma)
+
 	decryptionTimestamp := time.Now().Add(2 * time.Second).Unix()
 	reqBody := service.RegisterIdentityRequest{
 		DecryptionTimestamp: uint64(decryptionTimestamp),
@@ -152,6 +172,16 @@ func (s *TestShutterService) TestRequestDecryptionKeyAfterTimestampReached() {
 	err = json.Unmarshal(body, &decryptionKeyResponse)
 	s.Require().NoError(err)
 	s.Require().NotEmpty(decryptionKeyResponse.DecryptionKey)
+
+	var decryptionKey *shcrypto.EpochSecretKey
+	decryptionKeyBytes, err := hex.DecodeString(decryptionKeyResponse.DecryptionKey)
+	s.Require().NoError(err)
+	err = decryptionKey.Unmarshal(decryptionKeyBytes)
+	s.Require().NoError(err)
+
+	decryptedMessage, err := encryptedTransaction.Decrypt(decryptionKey)
+	s.Require().NoError(err)
+	s.Require().Equal(msg, decryptedMessage)
 }
 
 func (s *TestShutterService) TestRequestDecryptionKeyForUnregisteredIdentity() {
